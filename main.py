@@ -21,6 +21,7 @@ from langchain_core.callbacks import BaseCallbackHandler
 
 from agent.ml_agent import create_agent
 from agent.planning_agent import create_planning_agent
+from agent.llm_factory import create_llm
 import config
 
 custom_theme = Theme({
@@ -402,6 +403,51 @@ def handle_sigint(sig, frame):
 
 # ── Helpers ───────────────────────────────────────────────────────────────
 
+_intent_llm = None
+
+def _get_intent_llm():
+    """Lazy-init a lightweight LLM for intent classification."""
+    global _intent_llm
+    if _intent_llm is None:
+        _intent_llm = create_llm(temperature=0.0, max_tokens=16)
+    return _intent_llm
+
+
+def classify_plan_intent(user_input: str) -> str:
+    """Use the LLM to classify whether the user approves, rejects, or modifies the plan.
+
+    Returns one of: "approve", "reject", "modify"
+    """
+    # Fast-path: very short obvious inputs (avoid LLM call for "yes"/"y"/"go")
+    normalized = user_input.lower().strip().rstrip(".!,")
+    if normalized in ("yes", "y", "go", "ok", "sure", "yep", "yeah", "lgtm"):
+        return "approve"
+    if normalized in ("no", "n", "stop", "cancel", "nope", "abort"):
+        return "reject"
+
+    prompt = (
+        "You are an intent classifier. The user was shown a plan and asked to approve it.\n"
+        "Classify their response as exactly one of these words:\n"
+        "- approve (they want to proceed with the plan as-is)\n"
+        "- modify (they want to change something about the plan)\n"
+        "- reject (they want to cancel or start over)\n\n"
+        f'User response: "{user_input}"\n\n'
+        "Classification:"
+    )
+
+    try:
+        llm = _get_intent_llm()
+        response = llm.invoke(prompt)
+        result = response.content.strip().lower().split()[0].rstrip(".,!\"'")
+        if result in ("approve", "modify", "reject"):
+            return result
+        # If the LLM returns something unexpected, default to approve for positive-sounding text
+        return "modify"
+    except Exception:
+        # Fallback: if LLM call fails, default to modify (safest — sends to planner)
+        return "modify"
+
+
 def run_planning_turn(planner, user_input, chat_history):
     """Run planner and return the full response object (for token tracking)."""
     response = planner.invoke({
@@ -498,18 +544,15 @@ def main():
         if state.phase in (ChatState.CHATTING, ChatState.PLAN_READY):
             plan_approved = False
             if state.phase == ChatState.PLAN_READY:
-                normalized = user_input.lower().strip().rstrip(".!,")
-                # Exact matches
-                approval_exact = {"yes", "y", "go", "proceed", "do it", "looks good",
-                                  "approved", "ok", "sure", "go for it", "lgtm",
-                                  "build it", "start", "yes, proceed", "yep", "yeah",
-                                  "nope, looks good, go for it"}
-                # Substring matches — if any of these appear anywhere in input, approve
-                approval_contains = {"looks good", "go for it", "go ahead", "do it",
-                                     "proceed", "lgtm", "build it", "start building",
-                                     "let's go", "ship it", "approved"}
-                if normalized in approval_exact or any(p in normalized for p in approval_contains):
+                intent = classify_plan_intent(user_input)
+                if intent == "approve":
                     plan_approved = True
+                elif intent == "reject":
+                    state.phase = ChatState.CHATTING
+                    state.current_plan = None
+                    console.print("[system]Plan cancelled. Describe what you'd like instead.[/system]\n")
+                    continue
+                # intent == "modify" falls through to planner
 
             if plan_approved:
                 state.phase = ChatState.BUILDING

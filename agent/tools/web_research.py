@@ -1,6 +1,7 @@
 """Web research tool - searches for ML papers, best practices, hyperparameters."""
 
 import json
+import re
 import socket
 import ipaddress
 import urllib.parse
@@ -14,7 +15,6 @@ def _is_private_url(url: str) -> bool:
         hostname = urllib.parse.urlparse(url).hostname
         if not hostname:
             return True
-        # Block common internal hostnames
         if hostname in ("localhost", "0.0.0.0") or hostname.endswith(".local"):
             return True
         addr_info = socket.getaddrinfo(hostname, None)
@@ -27,54 +27,73 @@ def _is_private_url(url: str) -> bool:
     return False
 
 
+def _duckduckgo_search(query: str, max_results: int = 8) -> list:
+    """Search DuckDuckGo HTML and parse results. Returns list of {title, url, snippet}."""
+    encoded = urllib.parse.quote(query)
+    url = f"https://html.duckduckgo.com/html/?q={encoded}"
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (compatible; MLModelBuildingAgent/1.0)",
+    })
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        html = resp.read().decode("utf-8", errors="replace")
+
+    results = []
+    # Parse result blocks — each result is in a <div class="result ...">
+    blocks = re.findall(
+        r'<a[^>]+class="result__a"[^>]*href="([^"]*)"[^>]*>(.*?)</a>.*?'
+        r'<a[^>]+class="result__snippet"[^>]*>(.*?)</a>',
+        html, re.DOTALL,
+    )
+    for raw_url, raw_title, raw_snippet in blocks[:max_results]:
+        # DuckDuckGo wraps URLs in a redirect — extract the actual URL
+        actual_url = raw_url
+        if "uddg=" in raw_url:
+            match = re.search(r'uddg=([^&]+)', raw_url)
+            if match:
+                actual_url = urllib.parse.unquote(match.group(1))
+
+        title = re.sub(r'<[^>]+>', '', raw_title).strip()
+        snippet = re.sub(r'<[^>]+>', '', raw_snippet).strip()
+        if title and actual_url:
+            results.append({"title": title, "url": actual_url, "snippet": snippet})
+
+    return results
+
+
 @tool
 def search_web(query: str) -> str:
-    """Search the web for ML research papers, best hyperparameters, model architectures,
-    and techniques. Use this to find state-of-the-art approaches before building a model.
+    """Search the web for ML research, best hyperparameters, model architectures,
+    and techniques. Returns titles, URLs, and snippets from search results.
 
     Good queries:
-    - "best hyperparameters for random forest classification tabular data"
+    - "best hyperparameters random forest classification tabular data"
     - "LSTM vs Transformer time series forecasting benchmark"
     - "XGBoost vs neural network small dataset comparison"
-    - "learning rate schedule ResNet image classification"
+    - "scikit-learn pipeline categorical encoding missing values"
 
     Args:
         query: Search query focused on ML techniques, papers, or benchmarks.
     """
     try:
-        # Use DuckDuckGo instant answer API (no key required)
-        encoded = urllib.parse.quote(query)
-        url = f"https://api.duckduckgo.com/?q={encoded}&format=json&no_html=1&skip_disambig=1"
-        req = urllib.request.Request(url, headers={"User-Agent": "MLModelBuildingAgent/1.0"})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read().decode())
-
-        results = []
-        if data.get("AbstractText"):
-            results.append(f"## Summary\n{data['AbstractText']}")
-            if data.get("AbstractURL"):
-                results.append(f"Source: {data['AbstractURL']}")
-
-        for topic in data.get("RelatedTopics", [])[:8]:
-            if isinstance(topic, dict) and topic.get("Text"):
-                text = topic["Text"]
-                url = topic.get("FirstURL", "")
-                results.append(f"- {text}\n  {url}")
-            elif isinstance(topic, dict) and topic.get("Topics"):
-                for sub in topic["Topics"][:3]:
-                    if sub.get("Text"):
-                        results.append(f"- {sub['Text']}\n  {sub.get('FirstURL', '')}")
+        results = _duckduckgo_search(query, max_results=8)
 
         if not results:
             return (
-                f"No direct results found for: {query}\n"
-                "Try rephrasing with more specific ML terminology, "
-                "or use the terminal to run: pip install arxiv && python -c \"import arxiv; ...\""
+                f"No results found for: {query}\n"
+                "Try rephrasing or use fetch_url on a known documentation page."
             )
 
-        return "\n\n".join(results)
+        lines = []
+        for i, r in enumerate(results, 1):
+            lines.append(f"{i}. **{r['title']}**")
+            lines.append(f"   {r['url']}")
+            if r['snippet']:
+                lines.append(f"   {r['snippet']}")
+            lines.append("")
+
+        return "\n".join(lines)
     except Exception as e:
-        return f"[ERROR] Web search failed: {e}\nYou can also try using the terminal to search with curl or Python."
+        return f"[ERROR] Web search failed: {e}\nYou can also use the terminal: curl or python requests."
 
 
 @tool
@@ -95,7 +114,6 @@ def fetch_url(url: str) -> str:
                 return f"[SKIPPED] Non-text content type: {content_type}"
             raw = resp.read(100_000).decode("utf-8", errors="replace")
             # Strip HTML tags roughly for readability
-            import re
             text = re.sub(r"<script[^>]*>.*?</script>", "", raw, flags=re.DOTALL)
             text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL)
             text = re.sub(r"<[^>]+>", " ", text)

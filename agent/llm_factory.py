@@ -4,7 +4,7 @@ import shutil
 import config
 
 
-def create_llm(temperature: float = 0.1, max_tokens: int = 8192):
+def create_llm(temperature: float = 0.1, max_tokens: int = 16384):
     """Create a LangChain ChatModel based on the configured provider.
 
     Supports three providers:

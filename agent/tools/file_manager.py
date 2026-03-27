@@ -26,15 +26,24 @@ def read_file(file_path: str) -> str:
 
 
 @tool
-def write_file(file_path: str, content: str) -> str:
+def write_file(file_path: str, content: str = "") -> str:
     """Write content to a file. Creates parent directories if needed.
     Use this to create Python training scripts, config files, etc.
 
+    IMPORTANT: Both file_path AND content are required. Always provide the full
+    file content in the content parameter.
+
     Args:
         file_path: Path where the file should be written.
-        content: The full content to write to the file.
+        content: The full content to write to the file. Must not be empty.
     """
     try:
+        if not content:
+            return (
+                "[ERROR] Missing 'content' parameter. "
+                "You must provide the full file content to write. "
+                "If the content is very long, break it into smaller files or write it in parts."
+            )
         path = os.path.expanduser(file_path)
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with open(path, "w") as f:
