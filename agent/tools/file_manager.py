@@ -17,9 +17,8 @@ def read_file(file_path: str) -> str:
             return f"[ERROR] File not found: {path}"
         size = os.path.getsize(path)
         if size > 500_000:
-            return f"[WARNING] File is {size:,} bytes. Reading first 50KB.\n" + open(
-                path, "r", errors="replace"
-            ).read(50_000)
+            with open(path, "r", errors="replace") as f:
+                return f"[WARNING] File is {size:,} bytes. Reading first 50KB.\n" + f.read(50_000)
         with open(path, "r", errors="replace") as f:
             return f.read()
     except Exception as e:

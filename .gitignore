@@ -1,7 +1,35 @@
-venv/
+# Environment & secrets
 .env
+.env.local
+.env.*.local
+
+# Python
+venv/
+.venv/
 __pycache__/
 *.pyc
-workspaces/
+*.pyo
 *.egg-info/
+dist/
+build/
+*.egg
+
+# Agent workspaces (generated at runtime)
+workspaces/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Data files (users bring their own)
+data/
+
+# Claude Code
+.claude/

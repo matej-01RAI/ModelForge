@@ -1,9 +1,30 @@
 """Web research tool - searches for ML papers, best practices, hyperparameters."""
 
 import json
+import socket
+import ipaddress
 import urllib.parse
 import urllib.request
 from langchain_core.tools import tool
+
+
+def _is_private_url(url: str) -> bool:
+    """Check if a URL resolves to a private/internal IP address (SSRF protection)."""
+    try:
+        hostname = urllib.parse.urlparse(url).hostname
+        if not hostname:
+            return True
+        # Block common internal hostnames
+        if hostname in ("localhost", "0.0.0.0") or hostname.endswith(".local"):
+            return True
+        addr_info = socket.getaddrinfo(hostname, None)
+        for _, _, _, _, sockaddr in addr_info:
+            ip = ipaddress.ip_address(sockaddr[0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                return True
+    except (socket.gaierror, ValueError):
+        return False
+    return False
 
 
 @tool
@@ -65,6 +86,8 @@ def fetch_url(url: str) -> str:
         url: The URL to fetch.
     """
     try:
+        if _is_private_url(url):
+            return "[ERROR] Cannot fetch internal/private network URLs."
         req = urllib.request.Request(url, headers={"User-Agent": "MLModelBuildingAgent/1.0"})
         with urllib.request.urlopen(req, timeout=20) as resp:
             content_type = resp.headers.get("Content-Type", "")
