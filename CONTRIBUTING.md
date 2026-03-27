@@ -1,4 +1,4 @@
-# Contributing to ML Model Building Agent
+# Contributing to ModelForge
 
 Thanks for your interest in contributing! Here's how you can help.
 
@@ -15,7 +15,7 @@ Thanks for your interest in contributing! Here's how you can help.
 bash setup.sh
 source venv/bin/activate
 cp .env.example .env
-# Edit .env with your Azure AI Foundry credentials
+# Edit .env with your LLM provider credentials (see README for options)
 python main.py
 ```
 
