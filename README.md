@@ -7,6 +7,8 @@ No manual feature engineering.
 No pipeline setup.
 No guesswork.
 
+![ModelForge Demo](demo.gif)
+
 
 ## What Is This?
 
@@ -59,7 +61,6 @@ Then you can ask:
 dataset --> ModelForge --> model --> ModelLens --> explanation
 ```
 
-<!-- demo screenshot / gif coming soon -->
 
 
 ## How It Works
@@ -103,8 +104,8 @@ The agent works in two phases:
 
 ```bash
 # Clone and set up
-git clone https://github.com/matej-01RAI/MLModelBuildingAgent.git
-cd MLModelBuildingAgent
+git clone https://github.com/matej-01RAI/ModelForge.git
+cd ModelForge
 bash setup.sh
 
 # Configure (pick one provider — see below)
@@ -176,7 +177,7 @@ CLAUDE_CODE_MODEL=sonnet   # opus, sonnet, or haiku
 ## Architecture
 
 ```
-MLModelBuildingAgent/
+ModelForge/
 ├── main.py                    # Terminal UI, spinner, token tracking, chat loop
 ├── config.py                  # Environment variable loading
 ├── setup.sh                   # One-command setup script

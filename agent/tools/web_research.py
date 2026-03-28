@@ -32,7 +32,7 @@ def _duckduckgo_search(query: str, max_results: int = 8) -> list:
     encoded = urllib.parse.quote(query)
     url = f"https://html.duckduckgo.com/html/?q={encoded}"
     req = urllib.request.Request(url, headers={
-        "User-Agent": "Mozilla/5.0 (compatible; MLModelBuildingAgent/1.0)",
+        "User-Agent": "Mozilla/5.0 (compatible; ModelForge/1.0)",
     })
     with urllib.request.urlopen(req, timeout=15) as resp:
         html = resp.read().decode("utf-8", errors="replace")
@@ -107,7 +107,7 @@ def fetch_url(url: str) -> str:
     try:
         if _is_private_url(url):
             return "[ERROR] Cannot fetch internal/private network URLs."
-        req = urllib.request.Request(url, headers={"User-Agent": "MLModelBuildingAgent/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "ModelForge/1.0"})
         with urllib.request.urlopen(req, timeout=20) as resp:
             content_type = resp.headers.get("Content-Type", "")
             if "text" not in content_type and "json" not in content_type:

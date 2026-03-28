@@ -5,7 +5,7 @@ Thanks for your interest in contributing! Here's how you can help.
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/<your-username>/MLModelBuildingAgent.git`
+2. Clone your fork: `git clone https://github.com/<your-username>/ModelForge.git`
 3. Run `bash setup.sh` to set up the development environment
 4. Create a feature branch: `git checkout -b feature/your-feature-name`
 

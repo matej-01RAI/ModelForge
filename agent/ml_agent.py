@@ -1,7 +1,7 @@
-"""Core ML Model Building Agent - LangChain orchestration with Claude via configurable providers."""
+"""ModelForge - LangChain orchestration with Claude via configurable providers."""
 
 import os
-from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain_classic.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 from agent.llm_factory import create_llm
@@ -109,7 +109,7 @@ Your final message should be a concise summary:
 
 
 def create_agent(workspace_dir: str = None):
-    """Create the ML Model Building Agent."""
+    """Create the ModelForge agent."""
     if workspace_dir is None:
         workspace_dir = config.WORKSPACE_DIR
 

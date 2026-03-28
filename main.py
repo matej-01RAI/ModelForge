@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ML Model Building Agent - Terminal Chat Interface.
+"""ModelForge - Terminal Chat Interface.
 
 An autonomous AI agent that builds machine learning models.
 Supports multiple providers: Anthropic API, Azure AI Foundry, Claude Code CLI.
@@ -41,7 +41,7 @@ console = Console(theme=custom_theme)
 
 
 WELCOME_BANNER = """
-# ML Model Building Agent
+# ModelForge
 
 An autonomous AI agent that builds the best possible ML models for your data.
 
@@ -492,7 +492,7 @@ def main():
     global _active_callback
     signal.signal(signal.SIGINT, handle_sigint)
 
-    console.print(Panel(Markdown(WELCOME_BANNER), border_style="green", title="MLModelBuildingAgent"))
+    console.print(Panel(Markdown(WELCOME_BANNER), border_style="green", title="ModelForge"))
 
     from agent.llm_factory import get_provider_display_name
 

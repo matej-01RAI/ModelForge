@@ -1,5 +1,5 @@
 #!/bin/bash
-# Setup script for ML Model Building Agent
+# Setup script for ModelForge
 
 set -e
 
@@ -9,7 +9,7 @@ cd "$SCRIPT_DIR"
 MIN_PY_MAJOR=3
 MIN_PY_MINOR=9
 
-echo "=== ML Model Building Agent Setup ==="
+echo "=== ModelForge Setup ==="
 echo ""
 
 # Find Python
