@@ -22,6 +22,8 @@ from langchain_core.callbacks import BaseCallbackHandler
 from agent.ml_agent import create_agent
 from agent.planning_agent import create_planning_agent
 from agent.llm_factory import create_llm
+from agent.tools.cost_estimator import estimate_build_cost, format_cost_estimate
+from agent.session_history import save_session, list_sessions, load_session, format_session_list
 import config
 
 custom_theme = Theme({
@@ -57,6 +59,9 @@ An autonomous AI agent that builds the best possible ML models for your data.
 - `/workspace` to show workspace directory
 - `/tokens` to show session token usage
 - `/build` to skip planning and go straight to building
+- `/sessions` to list saved sessions
+- `/load <session_id>` to restore a previous session
+- `/save` to save current session
 
 **Example prompts:**
 - "I have a CSV at /path/to/data.csv, target column is 'label', build me a classifier"
@@ -128,6 +133,16 @@ class LiveStatusCallback(BaseCallbackHandler):
         "search_web": "??",
         "fetch_url": "<>",
         "analyze_dataset": "##",
+        "generate_predict_api": "~~",
+        "log_experiment": "++",
+        "compare_experiments": "==",
+        "generate_model_card": "[]",
+        "save_build_state": "->",
+        "load_build_state": "<-",
+        "version_dataset": "##",
+        "check_dataset_changed": "??",
+        "generate_dl_scaffold": "NN",
+        "check_fairness": "**",
     }
 
     TOOL_VERBS = {
@@ -138,6 +153,16 @@ class LiveStatusCallback(BaseCallbackHandler):
         "search_web": "Searching",
         "fetch_url": "Fetching",
         "analyze_dataset": "Analyzing",
+        "generate_predict_api": "Generating API",
+        "log_experiment": "Logging experiment",
+        "compare_experiments": "Comparing experiments",
+        "generate_model_card": "Generating model card",
+        "save_build_state": "Saving build state",
+        "load_build_state": "Loading build state",
+        "version_dataset": "Versioning dataset",
+        "check_dataset_changed": "Checking dataset",
+        "generate_dl_scaffold": "Generating DL scaffold",
+        "check_fairness": "Checking fairness",
     }
 
     def __init__(self):
@@ -535,6 +560,32 @@ def main():
             state.tokens.display()
             console.print()
             continue
+        elif user_input.lower() == "/sessions":
+            sessions = list_sessions()
+            console.print(Markdown(format_session_list(sessions)))
+            console.print()
+            continue
+        elif user_input.lower().startswith("/load "):
+            session_id = user_input[6:].strip()
+            session_data = load_session(session_id)
+            if session_data:
+                state.chat_history = session_data.get("chat_history", [])
+                state.current_plan = session_data.get("plan")
+                state.phase = ChatState.PLAN_READY if state.current_plan else ChatState.CHATTING
+                console.print(f"[system]Session '{session_id}' restored ({len(state.chat_history) // 2} turns).[/system]\n")
+            else:
+                console.print(f"[error]Session '{session_id}' not found.[/error]\n")
+            continue
+        elif user_input.lower() == "/save":
+            token_data = {
+                "total": state.tokens.total,
+                "input": state.tokens.total_input,
+                "output": state.tokens.total_output,
+                "llm_calls": state.tokens.llm_calls,
+            }
+            path = save_session(state.chat_history, state.current_plan, token_data)
+            console.print(f"[system]Session saved to {path}[/system]\n")
+            continue
         elif user_input.lower() == "/build" and state.current_plan:
             user_input = "yes, proceed"
 
@@ -556,6 +607,20 @@ def main():
 
             if plan_approved:
                 state.phase = ChatState.BUILDING
+
+                # Show cost estimate before building
+                try:
+                    model_name = config.ANTHROPIC_MODEL if config.PROVIDER == "anthropic" else config.AZURE_AI_MODEL if config.PROVIDER == "azure" else config.CLAUDE_CODE_MODEL
+                    estimate = estimate_build_cost(state.current_plan or "", model_name)
+                    console.print(Panel(
+                        Markdown(format_cost_estimate(estimate)),
+                        border_style="yellow",
+                        title="Cost Estimate",
+                        title_align="left",
+                    ))
+                except Exception:
+                    pass  # Don't block the build if estimation fails
+
                 console.print(Panel(
                     "[phase]Starting build...[/phase]",
                     border_style="magenta",
@@ -593,6 +658,19 @@ def main():
                     state.chat_history.append({"role": "assistant", "content": output})
                     state.phase = ChatState.CHATTING
                     state.current_plan = None
+
+                    # Auto-save session after build
+                    try:
+                        token_data = {
+                            "total": state.tokens.total,
+                            "input": state.tokens.total_input,
+                            "output": state.tokens.total_output,
+                            "llm_calls": state.tokens.llm_calls,
+                        }
+                        session_path = save_session(state.chat_history, None, token_data)
+                        console.print(f"  [system]Session auto-saved to {session_path}[/system]")
+                    except Exception:
+                        pass
 
                 except KeyboardInterrupt:
                     callback.stop()
