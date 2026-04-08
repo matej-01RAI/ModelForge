@@ -97,7 +97,16 @@ The agent works in two phases:
 - **Token usage tracking** -- monitor per-turn and session-wide token consumption
 - **Isolated workspaces** -- each project gets its own directory with a dedicated Python virtual environment
 - **Web research** -- searches for state-of-the-art approaches before building
-- **Multi-framework** -- scikit-learn, PyTorch, XGBoost, LightGBM, and more (installed as needed)
+- **Multi-framework** -- scikit-learn, PyTorch, TensorFlow, XGBoost, LightGBM, and more (installed as needed)
+- **Auto-generated prediction API** -- creates a FastAPI endpoint ready to serve predictions
+- **Experiment tracking** -- logs metrics, parameters, and artifacts for every model (with optional MLflow integration)
+- **Model cards** -- generates standardized documentation for every trained model
+- **Data versioning** -- hashes datasets for reproducibility tracking across builds
+- **Resumable builds** -- saves build state so you can resume interrupted or incremental builds
+- **Cost estimation** -- shows estimated token usage and cost before building starts
+- **Deep learning support** -- generates PyTorch/TensorFlow scaffolds for complex tasks
+- **Fairness checks** -- detects demographic bias across protected attributes
+- **Session history** -- saves and restores conversations across sessions
 
 
 ## Quick Start
@@ -172,6 +181,9 @@ CLAUDE_CODE_MODEL=sonnet   # opus, sonnet, or haiku
 | `/workspace` | Show the workspace directory path |
 | `/tokens` | Show session token usage (input, output, cache, LLM calls) |
 | `/build` | Skip approval prompt and start building immediately |
+| `/sessions` | List saved sessions |
+| `/load <id>` | Restore a previous session |
+| `/save` | Save current session to disk |
 
 
 ## Architecture
@@ -181,16 +193,27 @@ ModelForge/
 ├── main.py                    # Terminal UI, spinner, token tracking, chat loop
 ├── config.py                  # Environment variable loading
 ├── setup.sh                   # One-command setup script
-├── requirements.txt           # Pinned Python dependencies
+├── requirements.txt           # Python dependencies
 ├── agent/
 │   ├── ml_agent.py            # Builder agent (LangChain AgentExecutor + tools)
 │   ├── planning_agent.py      # Planner agent (conversational, no tools)
+│   ├── llm_factory.py         # LLM provider abstraction
+│   ├── session_history.py     # Session persistence across conversations
 │   └── tools/
 │       ├── terminal.py        # Shell command execution (600s timeout)
 │       ├── file_manager.py    # Read, write, and list files
 │       ├── web_research.py    # DuckDuckGo search + URL fetching
-│       └── data_analyzer.py   # Auto-analyze CSV/JSON/Parquet datasets
-└── workspaces/                # Generated at runtime — one directory per project
+│       ├── data_analyzer.py   # Auto-analyze CSV/JSON/Parquet datasets
+│       ├── api_generator.py   # FastAPI prediction endpoint generator
+│       ├── experiment_tracker.py  # MLflow + JSON experiment logging
+│       ├── model_card.py      # Standardized model documentation
+│       ├── workspace_state.py # Save/load build state for resume
+│       ├── cost_estimator.py  # Pre-build token/cost estimation
+│       ├── data_versioner.py  # Dataset hashing for reproducibility
+│       ├── deep_learning.py   # PyTorch/TensorFlow scaffold generator
+│       └── fairness_check.py  # Demographic bias detection
+├── workspaces/                # Generated at runtime — one directory per project
+└── sessions/                  # Saved conversation sessions
 ```
 
 ### Agent Tools
@@ -204,6 +227,16 @@ ModelForge/
 | `analyze_dataset` | `##` | Auto-analyze datasets -- types, stats, correlations, class balance |
 | `search_web` | `??` | Search DuckDuckGo for ML papers, benchmarks, best practices |
 | `fetch_url` | `<>` | Fetch and extract text from web pages |
+| `generate_predict_api` | `~~` | Generate FastAPI prediction endpoint for trained models |
+| `log_experiment` | `++` | Log metrics, params, and artifacts (JSON + optional MLflow) |
+| `compare_experiments` | `==` | Compare all logged experiments in a table |
+| `generate_model_card` | `[]` | Generate standardized model documentation |
+| `save_build_state` | `->` | Save build progress for resume capability |
+| `load_build_state` | `<-` | Load previous build state to resume |
+| `version_dataset` | `##` | Hash dataset for reproducibility tracking |
+| `check_dataset_changed` | `??` | Check if dataset has changed since last version |
+| `generate_dl_scaffold` | `NN` | Generate PyTorch/TensorFlow training boilerplate |
+| `check_fairness` | `**` | Run demographic bias checks on predictions |
 
 ### Workspace Structure
 
@@ -211,11 +244,15 @@ Each project the agent builds gets an isolated workspace:
 
 ```
 workspaces/my_project/
-├── venv/       # Dedicated Python virtual environment
-├── data/       # Copy of training data
-├── src/        # Training scripts
-├── models/     # Saved models (.pkl, .pth)
-└── results/    # Metrics, plots, reports
+├── venv/              # Dedicated Python virtual environment
+├── data/              # Copy of training data
+├── src/               # Training scripts + predict_api.py
+├── models/            # Saved models (.pkl, .pth, .keras)
+├── results/           # Metrics, plots, reports, fairness_report.md
+├── experiments/       # Experiment logs (JSON + optional MLflow)
+├── .versions/         # Dataset version hashes
+├── .build_state.json  # Resumable build state
+└── MODEL_CARD.md      # Standardized model documentation
 ```
 
 
@@ -268,9 +305,26 @@ Instead of building models manually and trying to interpret them later, we move 
 **AI builds the model, and you can ask it what it learned.**
 
 
+## Tested
+
+Validated across 7 end-to-end builds covering classification, regression, multi-class, small datasets, and deep learning:
+
+| Dataset | Task | Best Model | Key Metric |
+|---------|------|------------|------------|
+| Heart Disease (303 rows) | Binary classification | KNN | 88.5% accuracy, 100% recall |
+| California Housing (20K rows) | Regression | XGBoost | R²=0.848 |
+| Wine Quality (1.6K rows) | Multi-class (6 classes) | Random Forest | 66.9% accuracy |
+| Iris (150 rows) | Small dataset | SVM (RBF) | 96.7% accuracy |
+| Diabetes (442 rows) | Small regression | Lasso | R²=0.496 |
+| California Housing (20K rows) | PyTorch neural net | 4-layer DNN | R²=0.806 |
+| Wine Quality (1.6K rows) | TensorFlow neural net | Keras DNN | 65.3% accuracy |
+
+Every build auto-generated: model card, prediction API, experiment logs, data versioning, and build state.
+
+
 ## Status
 
-This is an early experiment. Expect rough edges.
+Active development. Core pipeline is stable and tested. See [RELEASE_NOTES.md](RELEASE_NOTES.md) for details.
 
 
 ## License
